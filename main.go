@@ -8,11 +8,13 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strconv"
 	"time"
 
+	"github.com/shirou/gopsutil/v3/process"
 	"gopkg.in/yaml.v3"
 )
 
@@ -76,6 +78,32 @@ func main() {
 	}).Run(app); err != nil {
 		fmt.Println(err)
 	}
+
+	fmt.Println("Done!")
+	processes, err := process.Processes()
+	if err != nil {
+		fmt.Println(err)
+	}
+	for _, p := range processes {
+		name, err := p.Name()
+		if err != nil {
+			fmt.Println(err)
+		}
+		if name == "steam" {
+			fmt.Println("Restarting Steam")
+			if err := p.Kill(); err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+			time.Sleep(1 * time.Second)
+			if err := exec.Command("steam").Run(); err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+			break
+		}
+	}
+	os.Exit(0)
 }
 
 func (a *App) Run(appid int) error {
