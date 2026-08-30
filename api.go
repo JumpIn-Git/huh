@@ -33,8 +33,8 @@ func (a *App) getPackageIDs(appid int) error {
 		return err
 	}
 	for _, pkg := range body[fmt.Sprintf("%d", appid)].Data.Packages {
-		if !slices.Contains(a.Config.AdditionalApps, pkg) {
-			a.Config.AdditionalApps = append(a.Config.AdditionalApps, pkg)
+		if !slices.Contains(a.Config.AdditionalPackages, pkg) {
+			a.Config.AdditionalPackages = append(a.Config.AdditionalPackages, pkg)
 		}
 	}
 	return nil

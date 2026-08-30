@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"time"
 
@@ -25,9 +26,10 @@ type App struct {
 }
 
 type SLSconfig struct {
-	AdditionalApps   []int          `yaml:"AdditionalApps,omitempty"`
-	AdditionalDepots []int          `yaml:"AdditionalDepots,omitempty"`
-	DecryptionKeys   map[int]string `yaml:"DecryptionKeys,omitempty"`
+	AdditionalApps     []int          `yaml:"AdditionalApps,omitempty"`
+	AdditionalDepots   []int          `yaml:"AdditionalDepots,omitempty"`
+	AdditionalPackages []int          `yaml:"AdditionalPackages,omitempty"`
+	DecryptionKeys     map[int]string `yaml:"DecryptionKeys,omitempty"`
 	// This will make Marshal keep unknown fields (has to be a public field, no _)
 	A map[string]any `yaml:",inline"`
 }
@@ -49,18 +51,12 @@ func main() {
 		fmt.Println("depotcache not found")
 		os.Exit(1)
 	}
-
 	slsc := filepath.Join(home, ".config/SLSsteam/config.yaml")
 	if f, err := os.Stat(slsc); err != nil || f.IsDir() {
 		fmt.Println("config.yaml not found")
 		os.Exit(1)
 	}
 
-	a := &App{
-		Depotcache:    depotcache,
-		ApiKey:        key,
-		SLSconfigPath: slsc,
-	}
 	if len(os.Args) < 2 {
 		fmt.Println("appid required")
 		os.Exit(1)
@@ -73,7 +69,11 @@ func main() {
 		fmt.Println(err)
 	}
 	fmt.Printf("Running appid %d\n", app)
-	if err := a.Run(app); err != nil {
+	if err := (&App{
+		Depotcache:    depotcache,
+		ApiKey:        key,
+		SLSconfigPath: slsc,
+	}).Run(app); err != nil {
 		fmt.Println(err)
 	}
 }
@@ -101,6 +101,11 @@ func (a *App) Run(appid int) error {
 
 	if err := a.getPackageIDs(appid); err != nil {
 		return err
+	}
+
+	// Another sanity check, i.e. silksong has a key for the main appid
+	if !slices.Contains(a.Config.AdditionalApps, appid) {
+		a.Config.AdditionalApps = append(a.Config.AdditionalApps, appid)
 	}
 
 	b, err := yaml.Marshal(a.Config)
