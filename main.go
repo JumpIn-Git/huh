@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -143,9 +144,13 @@ func (a *App) setupGame(appid int) error {
 	}
 	for _, entry := range entries {
 		if entry.Key != "" {
-			config.AdditionalApps = append(config.AdditionalApps, entry.ID)
+			if !slices.Contains(config.AdditionalApps, entry.ID) {
+				config.AdditionalApps = append(config.AdditionalApps, entry.ID)
+			}
 		} else {
-			config.AdditionalDepots = append(config.AdditionalDepots, entry.ID)
+			if !slices.Contains(config.AdditionalDepots, entry.ID) {
+				config.AdditionalDepots = append(config.AdditionalDepots, entry.ID)
+			}
 			config.DecryptionKeys[entry.ID] = entry.Key
 		}
 	}
@@ -159,12 +164,14 @@ func (a *App) setupGame(appid int) error {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 	defer resp.Body.Close()
-	var body steamResponse
+	var body storeResponse
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return err
 	}
 	for _, pkg := range body[fmt.Sprintf("%d", appid)].Data.Packages {
-		config.AdditionalApps = append(config.AdditionalApps, pkg)
+		if !slices.Contains(config.AdditionalApps, pkg) {
+			config.AdditionalApps = append(config.AdditionalApps, pkg)
+		}
 	}
 
 	b, err := yaml.Marshal(config)
@@ -177,7 +184,7 @@ func (a *App) setupGame(appid int) error {
 	return nil
 }
 
-type steamResponse map[string]struct {
+type storeResponse map[string]struct {
 	// {appid}.data.packages
 	Data struct {
 		Packages []int `json:"packages"`
