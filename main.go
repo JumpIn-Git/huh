@@ -72,6 +72,7 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
+	fmt.Printf("Running appid %d\n", app)
 	if err := a.Run(app); err != nil {
 		fmt.Println(err)
 	}

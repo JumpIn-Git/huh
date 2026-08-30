@@ -15,7 +15,7 @@ func (a *App) parseLua(luab []byte) error {
 		_ = l.OptInt(2, 0) // We don't need the 2nd argument
 		key := l.OptString(3, "")
 
-		if key != "" {
+		if key == "" {
 			// Not sure this is even needed due to package's, doing anyway for sanity
 			if !slices.Contains(a.Config.AdditionalApps, id) {
 				a.Config.AdditionalApps = append(a.Config.AdditionalApps, id)
