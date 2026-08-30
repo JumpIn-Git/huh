@@ -1,3 +1,5 @@
+//go:build linux
+
 package main
 
 import (
@@ -7,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -30,13 +33,46 @@ type SLSconfig struct {
 }
 
 func main() {
-	a := &App{
-		Depotcache:    "/home/cinnamon/.local/share/Steam/depotcache",
-		ApiKey:        "smm_03e8bebeef4e96f9f53fd5c2abbfa00d408ead236a5077978ae9b73f0b7e7ce5338d68fa3280304b6804a43cf53b74c7",
-		SLSconfigPath: "/home/cinnamon/.config/SLSsteam/config.yaml",
+	key := os.Getenv("HUBCAB_KEY")
+	if key == "" {
+		fmt.Println("HUBCAB_KEY environment variable not set")
+		os.Exit(1)
 	}
-	err := a.Run(1030300)
+
+	home, err := os.UserHomeDir()
 	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	depotcache := filepath.Join(home, ".steam/steam")
+	if f, err := os.Stat(depotcache); err != nil || !f.IsDir() {
+		fmt.Println("depotcache not found")
+		os.Exit(1)
+	}
+
+	slsc := filepath.Join(home, ".config/SLSsteam/config.yaml")
+	if f, err := os.Stat(slsc); err != nil || f.IsDir() {
+		fmt.Println("config.yaml not found")
+		os.Exit(1)
+	}
+
+	a := &App{
+		Depotcache:    depotcache,
+		ApiKey:        key,
+		SLSconfigPath: slsc,
+	}
+	if len(os.Args) < 2 {
+		fmt.Println("appid required")
+		os.Exit(1)
+	} else if len(os.Args) > 2 {
+		fmt.Println("too many arguments")
+		os.Exit(1)
+	}
+	app, err := strconv.Atoi(os.Args[1])
+	if err != nil {
+		fmt.Println(err)
+	}
+	if err := a.Run(app); err != nil {
 		fmt.Println(err)
 	}
 }
@@ -53,12 +89,12 @@ func (a *App) Run(appid int) error {
 		a.Config.DecryptionKeys = make(map[int]string)
 	}
 
-	applua, err := a.fetchHubcap(appid)
+	luab, err := a.fetchHubcap(appid)
 	if err != nil {
 		return err
 	}
 
-	if err := a.parseLua(applua); err != nil {
+	if err := a.parseLua(luab); err != nil {
 		return err
 	}
 

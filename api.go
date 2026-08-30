@@ -40,11 +40,11 @@ func (a *App) getPackageIDs(appid int) error {
 	return nil
 }
 
-func (a *App) fetchHubcap(appid int) (string, error) {
+func (a *App) fetchHubcap(appid int) ([]byte, error) {
 	// TODO most can just be streamed from ram, ask user cuz ie train sim has ton of depots
 	tmp, err := os.CreateTemp("", fmt.Sprintf("%d-hubcap-*.zip", appid))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer tmp.Close()
 	defer os.Remove(tmp.Name())
@@ -54,30 +54,30 @@ func (a *App) fetchHubcap(appid int) (string, error) {
 	req.Header.Set("Authorization", "Bearer "+a.ApiKey)
 	resp, err := Client.Do(req)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
 	_, err = io.Copy(tmp, resp.Body)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	zip, err := zip.OpenReader(tmp.Name())
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer zip.Close()
 
-	var applua string
+	var luab []byte
 	for _, file := range zip.File {
 		if strings.HasSuffix(file.Name, ".manifest") {
 			if err := a.copyManifest(file); err != nil {
-				return "", err
+				return nil, err
 			}
-		} else if strings.HasSuffix(file.Name, ".lua") && applua == "" {
+		} else if strings.HasSuffix(file.Name, ".lua") && luab == nil {
 			if err := func() error {
 				zf, err := file.Open()
 				if err != nil {
@@ -88,15 +88,15 @@ func (a *App) fetchHubcap(appid int) (string, error) {
 				if err != nil {
 					return err
 				}
-				applua = string(b)
+				luab = b
 				return nil
 			}(); err != nil {
-				return "", err
+				return nil, err
 			}
 		}
 	}
-	if applua == "" {
-		return "", fmt.Errorf("no lua file found")
+	if luab == nil {
+		return nil, fmt.Errorf("no lua file found")
 	}
-	return applua, nil
+	return luab, nil
 }

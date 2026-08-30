@@ -7,19 +7,21 @@ import (
 	lua "github.com/yuin/gopher-lua"
 )
 
-func (a *App) parseLua(applua string) error {
+func (a *App) parseLua(luab []byte) error {
 	L := lua.NewState()
 	defer L.Close()
 	L.SetGlobal("addappid", L.NewFunction(func(l *lua.LState) int {
 		id := l.CheckInt(1)
-		_ = l.OptInt(2, 0) // We dont need the 2nd argument
+		_ = l.OptInt(2, 0) // We don't need the 2nd argument
 		key := l.OptString(3, "")
 
 		if key != "" {
+			// Not sure this is even needed due to package's, doing anyway for sanity
 			if !slices.Contains(a.Config.AdditionalApps, id) {
 				a.Config.AdditionalApps = append(a.Config.AdditionalApps, id)
 			}
 		} else {
+			// This might also be redundant
 			if !slices.Contains(a.Config.AdditionalDepots, id) {
 				a.Config.AdditionalDepots = append(a.Config.AdditionalDepots, id)
 			}
@@ -43,5 +45,5 @@ func (a *App) parseLua(applua string) error {
 		return 1
 	}))
 	L.SetMetatable(L.GetGlobal("_G"), mt)
-	return L.DoString(applua)
+	return L.DoString(string(luab))
 }
