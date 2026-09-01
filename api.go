@@ -9,9 +9,9 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"time"
 )
 
-// {appid}.data.packages
 type storeResponse map[string]struct {
 	Data struct {
 		Packages []int `json:"packages"`
@@ -19,29 +19,42 @@ type storeResponse map[string]struct {
 }
 
 func (a *App) getPackageIDs(appid int) error {
-	resp, err := Client.Get(fmt.Sprintf(
-		"https://store.steampowered.com/api/appdetails?appids=%d", appid,
-	))
+	url := fmt.Sprintf("https://store.steampowered.com/api/appdetails?appids=%d", appid)
+	logger.Debug("Querying Steam Store API", "url", url)
+
+	req, _ := http.NewRequest("GET", url, nil)
+	resp, err := Client.Do(req)
 	if err != nil {
-		return err
-	} else if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
 	var body storeResponse
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return err
+		return fmt.Errorf("failed to decode response: %w", err)
 	}
-	for _, pkg := range body[fmt.Sprintf("%d", appid)].Data.Packages {
-		if !slices.Contains(a.Config.AdditionalPackages, pkg) {
-			a.Config.AdditionalPackages = append(a.Config.AdditionalPackages, pkg)
+
+	key := fmt.Sprintf("%d", appid)
+	if data, ok := body[key]; ok && data.Data.Packages != nil {
+		beforeCount := len(a.Config.AdditionalPackages)
+		for _, pkg := range data.Data.Packages {
+			if !slices.Contains(a.Config.AdditionalPackages, pkg) {
+				a.Config.AdditionalPackages = append(a.Config.AdditionalPackages, pkg)
+			}
 		}
+		logger.Debug("Found packages",
+			"total", len(data.Data.Packages),
+			"new", len(a.Config.AdditionalPackages)-beforeCount)
 	}
+
 	return nil
 }
 
 func (a *App) fetchHubcap(appid int) ([]byte, error) {
-	// TODO most can just be streamed from ram, ask user cuz ie train sim has ton of depots
 	tmp, err := os.CreateTemp("", fmt.Sprintf("%d-hubcap-*.zip", appid))
 	if err != nil {
 		return nil, err
@@ -50,11 +63,14 @@ func (a *App) fetchHubcap(appid int) ([]byte, error) {
 	defer os.Remove(tmp.Name())
 
 	url := fmt.Sprintf("https://hubcapmanifest.com/api/v1/manifest/%d", appid)
-	req, _ := http.NewRequest("GET", url, nil) // We can assume this wont error
+	logger.Debug("Fetching HubCap manifest", "url", url)
+
+	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("Authorization", "Bearer "+a.ApiKey)
+	start := time.Now()
 	resp, err := Client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
@@ -63,17 +79,21 @@ func (a *App) fetchHubcap(appid int) ([]byte, error) {
 
 	_, err = io.Copy(tmp, resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to download: %w", err)
 	}
+	logger.Debug("Downloaded manifest zip", "duration", time.Since(start).Round(time.Millisecond))
+
 	zip, err := zip.OpenReader(tmp.Name())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open zip: %w", err)
 	}
 	defer zip.Close()
 
 	var luab []byte
+	manifestCount := 0
 	for _, file := range zip.File {
 		if strings.HasSuffix(file.Name, ".manifest") {
+			manifestCount++
 			if err := a.copyManifest(file); err != nil {
 				return nil, err
 			}
@@ -93,8 +113,13 @@ func (a *App) fetchHubcap(appid int) ([]byte, error) {
 			}(); err != nil {
 				return nil, err
 			}
+			logger.Debug("Found Lua config file", "file", file.Name)
 		}
 	}
+	logger.Debug("Manifest contents",
+		"manifests", manifestCount,
+		"lua_files", 1)
+
 	if luab == nil {
 		return nil, fmt.Errorf("no lua file found")
 	}
