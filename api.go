@@ -20,10 +20,8 @@ type storeResponse map[string]struct {
 
 func (a *App) getPackageIDs(appid int) error {
 	url := fmt.Sprintf("https://store.steampowered.com/api/appdetails?appids=%d", appid)
-	logger.Debug("Querying Steam Store API", "url", url)
 
-	req, _ := http.NewRequest("GET", url, nil)
-	resp, err := Client.Do(req)
+	resp, err := Client.Get(url)
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
@@ -40,15 +38,11 @@ func (a *App) getPackageIDs(appid int) error {
 
 	key := fmt.Sprintf("%d", appid)
 	if data, ok := body[key]; ok && data.Data.Packages != nil {
-		beforeCount := len(a.Config.AdditionalPackages)
 		for _, pkg := range data.Data.Packages {
 			if !slices.Contains(a.Config.AdditionalPackages, pkg) {
 				a.Config.AdditionalPackages = append(a.Config.AdditionalPackages, pkg)
 			}
 		}
-		logger.Debug("Found packages",
-			"total", len(data.Data.Packages),
-			"new", len(a.Config.AdditionalPackages)-beforeCount)
 	}
 
 	return nil
@@ -63,7 +57,6 @@ func (a *App) fetchHubcap(appid int) ([]byte, error) {
 	defer os.Remove(tmp.Name())
 
 	url := fmt.Sprintf("https://hubcapmanifest.com/api/v1/manifest/%d", appid)
-	logger.Debug("Fetching HubCap manifest", "url", url)
 
 	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("Authorization", "Bearer "+a.ApiKey)
@@ -90,10 +83,8 @@ func (a *App) fetchHubcap(appid int) ([]byte, error) {
 	defer zip.Close()
 
 	var luab []byte
-	manifestCount := 0
 	for _, file := range zip.File {
 		if strings.HasSuffix(file.Name, ".manifest") {
-			manifestCount++
 			if err := a.copyManifest(file); err != nil {
 				return nil, err
 			}
@@ -116,10 +107,6 @@ func (a *App) fetchHubcap(appid int) ([]byte, error) {
 			logger.Debug("Found Lua config file", "file", file.Name)
 		}
 	}
-	logger.Debug("Manifest contents",
-		"manifests", manifestCount,
-		"lua_files", 1)
-
 	if luab == nil {
 		return nil, fmt.Errorf("no lua file found")
 	}

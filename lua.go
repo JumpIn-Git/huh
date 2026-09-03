@@ -11,9 +11,6 @@ func (a *App) parseLua(luab []byte) error {
 	L := lua.NewState()
 	defer L.Close()
 
-	appsAdded := []int{}
-	depotsAdded := []int{}
-
 	L.SetGlobal("addappid", L.NewFunction(func(l *lua.LState) int {
 		id := l.CheckInt(1)
 		_ = l.OptInt(2, 0)
@@ -22,16 +19,14 @@ func (a *App) parseLua(luab []byte) error {
 		if key == "" {
 			if !slices.Contains(a.Config.AdditionalApps, id) {
 				a.Config.AdditionalApps = append(a.Config.AdditionalApps, id)
-				appsAdded = append(appsAdded, id)
 				logger.Debug("+ Lua: Added appid", "appid", id)
 			}
 		} else {
 			if !slices.Contains(a.Config.AdditionalDepots, id) {
 				a.Config.AdditionalDepots = append(a.Config.AdditionalDepots, id)
-				depotsAdded = append(depotsAdded, id)
-				logger.Debug("+ Lua: Added depot with key", "depotid", id, "key_prefix", key[:8])
 			}
 			a.Config.DecryptionKeys[id] = key
+			logger.Debug("+ Lua: Added depot with key", "depotid", id)
 		}
 		return 0
 	}))
@@ -52,17 +47,8 @@ func (a *App) parseLua(luab []byte) error {
 	}))
 	L.SetMetatable(L.GetGlobal("_G"), mt)
 
-	logger.Debug("Executing Lua configuration")
 	if err := L.DoString(string(luab)); err != nil {
 		return fmt.Errorf("lua execution failed: %w", err)
 	}
-
-	if len(appsAdded) > 0 {
-		logger.Debug("Lua added appids", "count", len(appsAdded), "appids", appsAdded)
-	}
-	if len(depotsAdded) > 0 {
-		logger.Debug("Lua added depots with keys", "count", len(depotsAdded), "depots", depotsAdded)
-	}
-
 	return nil
 }
