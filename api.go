@@ -36,16 +36,15 @@ func (a *App) getPackageIDs(appid int) error {
 		return fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	key := fmt.Sprintf("%d", appid)
-	if data, ok := body[key]; ok && data.Data.Packages != nil {
+	if data, ok := body[fmt.Sprintf("%d", appid)]; ok && data.Data.Packages != nil {
 		for _, pkg := range data.Data.Packages {
 			if !slices.Contains(a.Config.AdditionalPackages, pkg) {
 				a.Config.AdditionalPackages = append(a.Config.AdditionalPackages, pkg)
 			}
 		}
+		return nil
 	}
-
-	return nil
+	return fmt.Errorf("invalid Steam response")
 }
 
 func (a *App) fetchHubcap(appid int) ([]byte, error) {

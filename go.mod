@@ -3,6 +3,8 @@ module steam
 go 1.26.7
 
 require (
+	github.com/alexflint/go-arg v1.6.1 // indirect
+	github.com/alexflint/go-scalar v1.2.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/labstack/gommon v0.5.0 // indirect
 	github.com/lmittmann/tint v1.2.0 // indirect

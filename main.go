@@ -8,9 +8,9 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"time"
 
+	"github.com/alexflint/go-arg"
 	"gopkg.in/yaml.v3"
 )
 
@@ -62,22 +62,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	if len(os.Args) < 2 {
-		logger.Error("App ID required")
-		logger.Info("Usage: SLSsteam <appid>")
-		os.Exit(1)
-	} else if len(os.Args) > 2 {
-		logger.Error("Too many arguments")
-		logger.Info("Usage: SLSsteam <appid>")
-		os.Exit(1)
+	var args struct {
+		Appid   int  `arg:"positional"`
+		Verbose bool `arg:"-v,--verbose" help:"verbosity level"`
 	}
-
-	id, err := strconv.Atoi(os.Args[1])
-	if err != nil {
-		logger.Error("Invalid app ID", "appid", os.Args[1])
-		logger.Info("App ID must be a number (e.g., 1030300)")
-		os.Exit(1)
-	}
+	arg.MustParse(&args)
 
 	start := time.Now()
 	app := &App{
@@ -85,7 +74,7 @@ func main() {
 		ApiKey:        key,
 		SLSconfigPath: slsc,
 	}
-	if err := app.Run(id); err != nil {
+	if err := app.Run(args.Appid); err != nil {
 		logger.Error("Failed to run", "error", err)
 		os.Exit(1)
 	}
