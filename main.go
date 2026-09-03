@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -32,6 +33,17 @@ type SLSconfig struct {
 }
 
 func main() {
+	var args struct {
+		Appid   int  `arg:"positional,required"`
+		Verbose bool `arg:"-v,--verbose" help:"verbosity level"`
+	}
+	arg.MustParse(&args)
+	if args.Verbose {
+		logLevel = slog.LevelDebug
+	} else {
+		logLevel = slog.LevelInfo
+	}
+
 	key := os.Getenv("HUBCAB_KEY")
 	if key == "" {
 		logger.Error("HUBCAB_KEY environment variable not set")
@@ -62,12 +74,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	var args struct {
-		Appid   int  `arg:"positional"`
-		Verbose bool `arg:"-v,--verbose" help:"verbosity level"`
-	}
-	arg.MustParse(&args)
-
 	start := time.Now()
 	app := &App{
 		Depotcache:    depotcache,
@@ -79,7 +85,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger.Info("Manifest fetch", "duration", time.Since(start).Round(time.Millisecond))
+	logger.Info("Fetched app info", "duration", time.Since(start).Round(time.Millisecond))
 	if err := app.SaveConfig(); err != nil {
 		logger.Error("Failed to save config", "error", err)
 		os.Exit(1)
@@ -121,7 +127,7 @@ func (a *App) Run(appid int) error {
 	if err := a.getPackageIDs(appid); err != nil {
 		return fmt.Errorf("failed to get packages: %w", err)
 	}
-	logger.Info("Found packages on Steam Store", "count", len(a.Config.AdditionalPackages))
+	logger.Debug("Found packages on Steam Store", "count", len(a.Config.AdditionalPackages))
 
 	if !slices.Contains(a.Config.AdditionalApps, appid) {
 		a.Config.AdditionalApps = append(a.Config.AdditionalApps, appid)

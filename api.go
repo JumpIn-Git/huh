@@ -12,12 +12,6 @@ import (
 	"time"
 )
 
-type storeResponse map[string]struct {
-	Data struct {
-		Packages []int `json:"packages"`
-	} `json:"data"`
-}
-
 func (a *App) getPackageIDs(appid int) error {
 	url := fmt.Sprintf("https://store.steampowered.com/api/appdetails?appids=%d", appid)
 
@@ -31,7 +25,11 @@ func (a *App) getPackageIDs(appid int) error {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	var body storeResponse
+	var body map[string]struct {
+		Data struct {
+			Packages []int `json:"packages"`
+		} `json:"data"`
+	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return fmt.Errorf("failed to decode response: %w", err)
 	}

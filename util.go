@@ -18,8 +18,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+var logLevel = slog.LevelDebug
+
 var logger = slog.New(tint.NewTextHandler(os.Stdout, &tint.Options{
-	Level:      slog.LevelDebug,
+	Level:      &logLevel,
 	TimeFormat: time.Kitchen,
 }))
 
@@ -54,7 +56,7 @@ func (a *App) copyManifest(file *zip.File) error {
 	if err != nil {
 		return fmt.Errorf("failed to copy manifest: %w", err)
 	}
-	logger.Info("+ Copied manifest", "manifest", n)
+	logger.Debug("+ Copied manifest", "manifest", n)
 	return nil
 }
 
@@ -77,7 +79,7 @@ func killSteam() {
 				logger.Error("Failed to kill Steam", "error", err)
 				os.Exit(1)
 			}
-			timeout := time.After(5 * time.Second)
+			timeout := time.After(10 * time.Second)
 			ticker := time.NewTicker(200 * time.Millisecond)
 			defer ticker.Stop()
 
