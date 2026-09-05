@@ -40,8 +40,6 @@ func main() {
 	arg.MustParse(&args)
 	if args.Verbose {
 		logLevel = slog.LevelDebug
-	} else {
-		logLevel = slog.LevelInfo
 	}
 
 	key := os.Getenv("HUBCAB_KEY")

@@ -7,8 +7,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"slices"
-	"strings"
 	"time"
 )
 
@@ -81,11 +81,12 @@ func (a *App) fetchHubcap(appid int) ([]byte, error) {
 
 	var luab []byte
 	for _, file := range zip.File {
-		if strings.HasSuffix(file.Name, ".manifest") {
+		ext := filepath.Ext(file.Name)
+		if ext == ".manifest" {
 			if err := a.copyManifest(file); err != nil {
 				return nil, err
 			}
-		} else if strings.HasSuffix(file.Name, ".lua") && luab == nil {
+		} else if ext == ".lua" && luab == nil {
 			if err := func() error {
 				zf, err := file.Open()
 				if err != nil {

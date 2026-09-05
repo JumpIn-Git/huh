@@ -18,7 +18,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var logLevel = slog.LevelDebug
+var logLevel = slog.LevelInfo
 
 var logger = slog.New(tint.NewTextHandler(os.Stdout, &tint.Options{
 	Level:      &logLevel,
@@ -67,44 +67,40 @@ func killSteam() {
 		return
 	}
 
-	pid := int32(os.Getpid())
 	for _, p := range processes {
-		name, err := p.Name()
-		if err != nil {
+		if name, _ := p.Name(); name != "steam" {
 			continue
 		}
-		if name == "steam" && p.Pid != pid {
-			logger.Info("Steam found, restarting")
-			if err := p.SendSignal(syscall.SIGTERM); err != nil {
-				logger.Error("Failed to kill Steam", "error", err)
-				os.Exit(1)
-			}
-			timeout := time.After(10 * time.Second)
-			ticker := time.NewTicker(200 * time.Millisecond)
-			defer ticker.Stop()
+		logger.Info("Steam found, restarting")
+		if err := p.SendSignal(syscall.SIGTERM); err != nil {
+			logger.Error("Failed to kill Steam", "error", err)
+			os.Exit(1)
+		}
+		timeout := time.After(10 * time.Second)
+		ticker := time.NewTicker(200 * time.Millisecond)
+		defer ticker.Stop()
 
-		PollLoop:
-			for {
-				select {
-				case <-timeout:
-					_ = p.Kill() // Fallback to SIGKILL if it hangs
-					logger.Info("SIGTERM timed out, forcing kill")
-					return
-				case <-ticker.C:
-					running, _ := p.IsRunning()
-					if !running {
-						break PollLoop
-					}
+	PollLoop:
+		for {
+			select {
+			case <-timeout:
+				_ = p.Kill() // Fallback to SIGKILL if it hangs
+				logger.Info("SIGTERM timed out, forcing kill")
+				return
+			case <-ticker.C:
+				running, _ := p.IsRunning()
+				if !running {
+					break PollLoop
 				}
 			}
-
-			logger.Info("✓ Steam terminated")
-			time.Sleep(1 * time.Second)
-			if err := exec.Command("steam").Start(); err != nil {
-				logger.Error("Failed to start Steam", "error", err)
-			}
-			logger.Info("✓ Steam restarted")
-			return
 		}
+
+		logger.Info("✓ Steam terminated")
+		time.Sleep(1 * time.Second)
+		if err := exec.Command("steam").Start(); err != nil {
+			logger.Error("Failed to start Steam", "error", err)
+		}
+		logger.Info("✓ Steam restarted")
+		return
 	}
 }
