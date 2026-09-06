@@ -90,7 +90,6 @@ func main() {
 	}
 	logger.Info("✓ Config updated successfully")
 
-	logger.Info("Restarting Steam")
 	killSteam()
 
 	logger.Info("✓ Done!")

@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"charm.land/huh/v2"
 	"github.com/lmittmann/tint"
 	"github.com/shirou/gopsutil/v3/process"
 	"gopkg.in/yaml.v3"
@@ -71,10 +72,16 @@ func killSteam() {
 		if name, _ := p.Name(); name != "steam" {
 			continue
 		}
-		logger.Info("Steam found, restarting")
+		var restart bool
+		if err := huh.NewConfirm().
+			Title("Do you want to restart stean?").
+			Value(&restart).
+			Run(); err != nil || !restart {
+			return
+		}
 		if err := p.SendSignal(syscall.SIGTERM); err != nil {
 			logger.Error("Failed to kill Steam", "error", err)
-			os.Exit(1)
+			return
 		}
 		timeout := time.After(10 * time.Second)
 		ticker := time.NewTicker(200 * time.Millisecond)
@@ -99,6 +106,7 @@ func killSteam() {
 		time.Sleep(1 * time.Second)
 		if err := exec.Command("steam").Start(); err != nil {
 			logger.Error("Failed to start Steam", "error", err)
+			return
 		}
 		logger.Info("✓ Steam restarted")
 		return
