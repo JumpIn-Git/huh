@@ -117,7 +117,7 @@ func (a *App) Run(appid int) error {
 	}
 
 	logger.Info("Parsing Lua configuration", "step", "3/4")
-	if err := a.parseLua(luab); err != nil {
+	if err := a.parseLua(luab, appid); err != nil {
 		return fmt.Errorf("failed to parse lua: %w", err)
 	}
 

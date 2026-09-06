@@ -7,7 +7,7 @@ import (
 	lua "github.com/yuin/gopher-lua"
 )
 
-func (a *App) parseLua(luab []byte) error {
+func (a *App) parseLua(luab []byte, appid int) error {
 	L := lua.NewState()
 	defer L.Close()
 
@@ -22,11 +22,15 @@ func (a *App) parseLua(luab []byte) error {
 				logger.Debug("+ Lua: Added appid", "appid", id)
 			}
 		} else {
-			if !slices.Contains(a.Config.AdditionalDepots, id) {
-				a.Config.AdditionalDepots = append(a.Config.AdditionalDepots, id)
-			}
 			a.Config.DecryptionKeys[id] = key
-			logger.Debug("+ Lua: Added depot with key", "depotid", id)
+			if id != appid {
+				if !slices.Contains(a.Config.AdditionalDepots, id) {
+					a.Config.AdditionalDepots = append(a.Config.AdditionalDepots, id)
+				}
+				logger.Debug("+ Lua: Added depot with key", "depotid", id)
+			} else {
+				logger.Debug("+ Lua: Added appid key", "appid", id)
+			}
 		}
 		return 0
 	}))
