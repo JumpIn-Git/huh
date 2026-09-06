@@ -2,48 +2,13 @@ package main
 
 import (
 	"archive/zip"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
-	"slices"
 	"time"
 )
-
-func (a *App) getPackageIDs(appid int) error {
-	url := fmt.Sprintf("https://store.steampowered.com/api/appdetails?appids=%d", appid)
-
-	resp, err := Client.Get(url)
-	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	var body map[string]struct {
-		Data struct {
-			Packages []int `json:"packages"`
-		} `json:"data"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	if data, ok := body[fmt.Sprintf("%d", appid)]; ok && data.Data.Packages != nil {
-		for _, pkg := range data.Data.Packages {
-			if !slices.Contains(a.Config.AdditionalPackages, pkg) {
-				a.Config.AdditionalPackages = append(a.Config.AdditionalPackages, pkg)
-			}
-		}
-		return nil
-	}
-	return fmt.Errorf("invalid Steam response")
-}
 
 func (a *App) fetchHubcap(appid int) ([]byte, error) {
 	tmp, err := os.CreateTemp("", fmt.Sprintf("%d-hubcap-*.zip", appid))

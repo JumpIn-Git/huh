@@ -26,11 +26,10 @@ type App struct {
 }
 
 type SLSconfig struct {
-	AdditionalApps     []int          `yaml:"AdditionalApps,omitempty"`
-	AdditionalDepots   []int          `yaml:"AdditionalDepots,omitempty"`
-	AdditionalPackages []int          `yaml:"AdditionalPackages,omitempty"`
-	DecryptionKeys     map[int]string `yaml:"DecryptionKeys,omitempty"`
-	A                  map[string]any `yaml:",inline"`
+	AdditionalApps   []int          `yaml:"AdditionalApps,omitempty"`
+	AdditionalDepots []int          `yaml:"AdditionalDepots,omitempty"`
+	DecryptionKeys   map[int]string `yaml:"DecryptionKeys,omitempty"`
+	A                map[string]any `yaml:",inline"`
 }
 
 func main() {
@@ -39,10 +38,6 @@ func main() {
 		Verbose bool `arg:"-v,--verbose" help:"verbosity level"`
 	}
 	arg.MustParse(&args)
-	logLevel := log.InfoLevel
-	if args.Verbose {
-		logLevel = log.DebugLevel
-	}
 	// lmittmann/tint-like styling
 	s := log.DefaultStyles()
 	s.Levels[log.DebugLevel] = s.Levels[log.DebugLevel].UnsetForeground().Bold(false)
@@ -61,9 +56,11 @@ func main() {
 	logger = log.NewWithOptions(os.Stdout, log.Options{
 		TimeFormat:      time.Kitchen,
 		ReportTimestamp: true,
-		Level:           logLevel,
 	})
 	logger.SetStyles(s)
+	if args.Verbose {
+		logger.SetLevel(log.DebugLevel)
+	}
 
 	key := os.Getenv("HUBCAB_KEY")
 	if key == "" {
@@ -120,7 +117,7 @@ func main() {
 }
 
 func (a *App) Run(appid int) error {
-	logger.Info("Loading existing config", "step", "1/4")
+	logger.Info("Loading existing config", "step", "1/3")
 	cf, err := os.ReadFile(a.SLSconfigPath)
 	if err != nil {
 		return fmt.Errorf("failed to read config: %w", err)
@@ -132,22 +129,16 @@ func (a *App) Run(appid int) error {
 		a.Config.DecryptionKeys = make(map[int]string)
 	}
 
-	logger.Info("Fetching HubCap manifest", "appid", appid, "step", "2/4")
+	logger.Info("Fetching HubCap manifest", "appid", appid, "step", "2/3")
 	luab, err := a.fetchHubcap(appid)
 	if err != nil {
 		return fmt.Errorf("failed to fetch hubcap: %w", err)
 	}
 
-	logger.Info("Parsing Lua configuration", "step", "3/4")
+	logger.Info("Parsing Lua configuration", "step", "3/3")
 	if err := a.parseLua(luab, appid); err != nil {
 		return fmt.Errorf("failed to parse lua: %w", err)
 	}
-
-	logger.Info("Fetching Steam Store package information", "step", "4/4")
-	if err := a.getPackageIDs(appid); err != nil {
-		return fmt.Errorf("failed to get packages: %w", err)
-	}
-	logger.Debug("Found packages on Steam Store", "count", len(a.Config.AdditionalPackages))
 
 	if !slices.Contains(a.Config.AdditionalApps, appid) {
 		a.Config.AdditionalApps = append(a.Config.AdditionalApps, appid)
