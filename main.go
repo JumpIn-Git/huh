@@ -92,7 +92,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	start := time.Now()
 	app := &App{
 		Depotcache:    depotcache,
 		ApiKey:        key,
@@ -102,21 +101,11 @@ func main() {
 		logger.Error("Failed to run", "error", err)
 		os.Exit(1)
 	}
-
-	logger.Info("Fetched app info", "duration", time.Since(start).Round(time.Millisecond))
-	if err := app.SaveConfig(); err != nil {
-		logger.Error("Failed to save config", "error", err)
-		os.Exit(1)
-	}
-	logger.Info("✓ Config updated successfully")
-
-	killSteam()
-
-	logger.Info("✓ Done!")
 	os.Exit(0)
 }
 
 func (a *App) Run(appid int) error {
+	start := time.Now()
 	logger.Info("Loading existing config", "step", "1/3")
 	cf, err := os.ReadFile(a.SLSconfigPath)
 	if err != nil {
@@ -143,5 +132,16 @@ func (a *App) Run(appid int) error {
 	if !slices.Contains(a.Config.AdditionalApps, appid) {
 		a.Config.AdditionalApps = append(a.Config.AdditionalApps, appid)
 	}
+
+	logger.Info("Fetched app info", "duration", time.Since(start).Round(time.Millisecond))
+	if err := a.SaveConfig(); err != nil {
+		logger.Error("Failed to save config", "error", err)
+		os.Exit(1)
+	}
+	logger.Info("✓ Config updated successfully")
+
+	killSteam()
+
+	logger.Info("✓ Done!")
 	return nil
 }
