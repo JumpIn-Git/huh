@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,17 +13,13 @@ import (
 	"time"
 
 	"charm.land/huh/v2"
-	"github.com/lmittmann/tint"
+	"charm.land/log/v2"
 	"github.com/shirou/gopsutil/v3/process"
+
 	"gopkg.in/yaml.v3"
 )
 
-var logLevel = slog.LevelInfo
-
-var logger = slog.New(tint.NewTextHandler(os.Stdout, &tint.Options{
-	Level:      &logLevel,
-	TimeFormat: time.Kitchen,
-}))
+var logger *log.Logger
 
 func (a *App) SaveConfig() error {
 	b, err := yaml.Marshal(a.Config)
@@ -67,9 +62,10 @@ func killSteam() {
 		logger.Warn("Failed to list processes", "error", err)
 		return
 	}
+	pid := int32(os.Getpid())
 
 	for _, p := range processes {
-		if name, _ := p.Name(); name != "steam" {
+		if name, _ := p.Name(); name != "steam" || p.Pid == pid {
 			continue
 		}
 		var restart bool

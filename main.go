@@ -4,13 +4,14 @@ package main
 
 import (
 	"fmt"
-	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
 	"time"
 
+	"charm.land/lipgloss/v2"
+	"charm.land/log/v2"
 	"github.com/alexflint/go-arg"
 	"gopkg.in/yaml.v3"
 )
@@ -38,9 +39,31 @@ func main() {
 		Verbose bool `arg:"-v,--verbose" help:"verbosity level"`
 	}
 	arg.MustParse(&args)
+	logLevel := log.InfoLevel
 	if args.Verbose {
-		logLevel = slog.LevelDebug
+		logLevel = log.DebugLevel
 	}
+	// lmittmann/tint-like styling
+	s := log.DefaultStyles()
+	s.Levels[log.DebugLevel] = s.Levels[log.DebugLevel].UnsetForeground().Bold(false)
+	s.Levels[log.InfoLevel] = s.Levels[log.InfoLevel].Foreground(lipgloss.Color("2"))
+	s.Levels[log.WarnLevel] = s.Levels[log.WarnLevel].Foreground(lipgloss.Color("3"))
+	s.Levels[log.ErrorLevel] = s.Levels[log.ErrorLevel].Foreground(lipgloss.Color("1"))
+	s.Timestamp = lipgloss.NewStyle().Faint(true)
+	for level, style := range s.Levels {
+		s.Levels[level] = style.Transform(func(str string) string {
+			if len(str) > 2 {
+				return str[:3]
+			}
+			return str
+		}).Width(0)
+	}
+	logger = log.NewWithOptions(os.Stdout, log.Options{
+		TimeFormat:      time.Kitchen,
+		ReportTimestamp: true,
+		Level:           logLevel,
+	})
+	logger.SetStyles(s)
 
 	key := os.Getenv("HUBCAB_KEY")
 	if key == "" {
