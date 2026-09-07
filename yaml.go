@@ -31,6 +31,11 @@ func EnsureKey(mapping *yaml.Node, key string, expectedKind yaml.Kind, expectedT
 		if mapping.Content[i].Value == key {
 			valNode := mapping.Content[i+1]
 			if valNode.Kind != expectedKind {
+				if isEmptyScalar(valNode) {
+					newVal := &yaml.Node{Kind: expectedKind, Tag: expectedTag}
+					mapping.Content[i+1] = newVal
+					return newVal, nil
+				}
 				return nil, fmt.Errorf("key %q exists but is of type %v (expected %v)", key, valNode.Kind, expectedKind)
 			} else if valNode.Tag != expectedTag {
 				return nil, fmt.Errorf("key %q exists but tag is %q, (expected %q)", key, valNode.Tag, expectedTag)
@@ -50,6 +55,15 @@ func EnsureKey(mapping *yaml.Node, key string, expectedKind yaml.Kind, expectedT
 	}
 	mapping.Content = append(mapping.Content, keyNode, valNode)
 	return valNode, nil
+}
+
+// isEmptyScalar reports whether a scalar node represents an empty/null value
+// (e.g. a YAML key with no contents, which SLSsteam emits as `Key:`).
+func isEmptyScalar(n *yaml.Node) bool {
+	if n.Kind != yaml.ScalarNode {
+		return false
+	}
+	return n.Tag == "!!null" || n.Value == "" || n.Value == "null" || n.Value == "~"
 }
 
 // SeqContainsInt reports whether a !!seq node contains the given integer value.
