@@ -3,6 +3,8 @@ package main
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -64,4 +66,28 @@ func readZipFile(file *zip.File) ([]byte, error) {
 	}
 	defer zf.Close()
 	return io.ReadAll(zf)
+}
+
+func getGameName(appid int) (string, error) {
+	resp, err := Client.Get(fmt.Sprintf("https://store.steampowered.com/api/appdetails?appids=%d", appid))
+	if err != nil {
+		return "", fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+	var s map[string]struct {
+		Data struct {
+			Name string `json:"name"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&s); err != nil {
+		return "", fmt.Errorf("malformed response: %w", err)
+	}
+	n := s[fmt.Sprintf("%d", appid)].Data.Name
+	if n == "" {
+		return "", errors.New("name is empty")
+	}
+	return n, nil
 }

@@ -16,13 +16,13 @@ func (a *App) parseLua(luab []byte, appid int) error {
 		key := l.OptString(3, "")
 
 		if key == "" {
-			if AppendIntToSeq(a.AdditionalApps, id) {
+			if AppendIntToSeq(a.AdditionalApps, id, a.Name) {
 				logger.Debug("+ Lua: Added appid", "appid", id)
 			}
 		} else {
-			SetMapKey(a.DecryptionKeys, id, key)
+			SetMapKey(a.DecryptionKeys, id, key, a.Name)
 			if id != appid {
-				if AppendIntToSeq(a.AdditionalDepots, id) {
+				if AppendIntToSeq(a.AdditionalDepots, id, a.Name) {
 					logger.Debug("+ Lua: Added depot with key", "depotid", id)
 				}
 			} else {

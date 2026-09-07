@@ -48,48 +48,20 @@ func EnsureKey(mapping *yaml.Node, key string, expectedKind yaml.Kind, expectedT
 		Kind: expectedKind,
 		Tag:  expectedTag,
 	}
-
 	mapping.Content = append(mapping.Content, keyNode, valNode)
 	return valNode, nil
 }
 
-// AppendToSequence appends an item to either a standard sequence (!!seq) or an ordered map (!!omap).
-// - For !!seq: pass the item in keyOrItem (valNode is ignored/nil).
-// - For !!omap: pass the key in keyOrItem and the value in valNode.
-// Panics if seqNode is not a SequenceNode or keyOrItem is nil, since misuse indicates a bug.
-func AppendToSequence(seqNode *yaml.Node, keyOrItem *yaml.Node, valNode *yaml.Node) {
-	if seqNode == nil || seqNode.Kind != yaml.SequenceNode {
-		panic("AppendToSequence: target node must be a SequenceNode")
-	}
-	if keyOrItem == nil {
-		panic("AppendToSequence: key/item node cannot be nil")
-	}
-
-	switch seqNode.Tag {
-	case "!!omap":
-		if valNode == nil {
-			panic("AppendToSequence: value node is required when appending to an !!omap")
-		}
-		entryMap := &yaml.Node{
-			Kind:    yaml.MappingNode,
-			Tag:     "!!map",
-			Content: []*yaml.Node{keyOrItem, valNode},
-		}
-		seqNode.Content = append(seqNode.Content, entryMap)
-
-	default:
-		seqNode.Content = append(seqNode.Content, keyOrItem)
-	}
-}
-
 // SeqContainsInt reports whether a !!seq node contains the given integer value.
-func SeqContainsInt(seqNode *yaml.Node, value int) bool {
+// If the value is found, the entry's line comment is set to comment (pass "" to leave unchanged).
+func SeqContainsInt(seqNode *yaml.Node, value int, comment string) bool {
 	if seqNode == nil || seqNode.Kind != yaml.SequenceNode {
 		return false
 	}
 	want := fmt.Sprintf("%d", value)
 	for _, item := range seqNode.Content {
 		if item.Value == want {
+			item.LineComment = comment
 			return true
 		}
 	}
@@ -97,27 +69,32 @@ func SeqContainsInt(seqNode *yaml.Node, value int) bool {
 }
 
 // AppendIntToSeq appends an integer scalar to a !!seq node, unless it's already present.
+// If the value is found, its line comment is set to comment. Otherwise the new
+// entry is appended with that line comment.
 // Returns true if the value was newly added, false if it was already present.
 // Panics if seqNode is not a SequenceNode.
-func AppendIntToSeq(seqNode *yaml.Node, value int) bool {
+func AppendIntToSeq(seqNode *yaml.Node, value int, comment string) bool {
 	if seqNode == nil || seqNode.Kind != yaml.SequenceNode {
 		panic("AppendIntToSeq: target node must be a SequenceNode")
 	}
-	if SeqContainsInt(seqNode, value) {
+	if SeqContainsInt(seqNode, value, comment) {
 		return false
 	}
-	AppendToSequence(seqNode, &yaml.Node{
-		Kind:  yaml.ScalarNode,
-		Tag:   "!!int",
-		Value: fmt.Sprintf("%d", value),
-	}, nil)
+	seqNode.Content = append(seqNode.Content, &yaml.Node{
+		Kind:        yaml.ScalarNode,
+		Tag:         "!!int",
+		Value:       fmt.Sprintf("%d", value),
+		LineComment: comment,
+	})
 	return true
 }
 
 // SetMapKey sets an integer key on a !!map node to the given string value.
-// If the key already exists, its value is replaced.
+// If the key already exists, its value (and any line comment) is replaced.
+// comment is set as a line comment on the value (rendered inline after it);
+// pass "" to leave unset.
 // Panics if mapNode is not a MappingNode.
-func SetMapKey(mapNode *yaml.Node, key int, value string) {
+func SetMapKey(mapNode *yaml.Node, key int, value, comment string) {
 	if mapNode == nil || mapNode.Kind != yaml.MappingNode {
 		panic("SetMapKey: target node must be a MappingNode")
 	}
@@ -125,15 +102,16 @@ func SetMapKey(mapNode *yaml.Node, key int, value string) {
 	for i := 0; i < len(mapNode.Content); i += 2 {
 		if mapNode.Content[i].Value == wantKey {
 			mapNode.Content[i+1] = &yaml.Node{
-				Kind:  yaml.ScalarNode,
-				Tag:   "!!str",
-				Value: value,
+				Kind:        yaml.ScalarNode,
+				Tag:         "!!str",
+				Value:       value,
+				LineComment: comment,
 			}
 			return
 		}
 	}
 	mapNode.Content = append(mapNode.Content,
 		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!int", Value: wantKey},
-		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: value},
+		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: value, LineComment: comment},
 	)
 }

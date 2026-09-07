@@ -21,6 +21,7 @@ type App struct {
 	Depotcache       string
 	ApiKey           string
 	SLSconfigPath    string
+	Name             string
 	Config           *yaml.Node
 	AdditionalApps   *yaml.Node
 	AdditionalDepots *yaml.Node
@@ -101,7 +102,7 @@ func main() {
 
 func (a *App) Run(appid int) error {
 	start := time.Now()
-	logger.Info("Loading existing config", "step", "1/3")
+	logger.Info("Loading existing config", "step", "1/4")
 	root, err := LoadConfig(a.SLSconfigPath)
 	if err != nil {
 		return err
@@ -121,18 +122,23 @@ func (a *App) Run(appid int) error {
 		return err
 	}
 
-	logger.Info("Fetching HubCap manifest", "appid", appid, "step", "2/3")
+	logger.Info("Fetching HubCap manifest", "appid", appid, "step", "2/4")
 	luab, err := a.fetchHubcap(appid)
 	if err != nil {
 		return fmt.Errorf("failed to fetch hubcap: %w", err)
 	}
 
-	logger.Info("Parsing Lua configuration", "step", "3/3")
+	logger.Info("Fetching game name", "appid", appid, "step", "3/4")
+	if a.Name, err = getGameName(appid); err != nil {
+		return fmt.Errorf("failed to fetch game name: %w", err)
+	}
+
+	logger.Info("Parsing Lua configuration", "step", "4/4")
 	if err := a.parseLua(luab, appid); err != nil {
 		return fmt.Errorf("failed to parse lua: %w", err)
 	}
 
-	AppendIntToSeq(a.AdditionalApps, appid)
+	AppendIntToSeq(a.AdditionalApps, appid, a.Name)
 
 	logger.Info("Fetched app info", "duration", time.Since(start).Round(time.Millisecond))
 	if err := a.SaveConfig(); err != nil {
