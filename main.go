@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"slices"
 	"time"
 
 	"charm.land/lipgloss/v2"
@@ -19,17 +18,13 @@ import (
 var Client = http.Client{Timeout: 10 * time.Second}
 
 type App struct {
-	Depotcache    string
-	ApiKey        string
-	SLSconfigPath string
-	Config        SLSconfig
-}
-
-type SLSconfig struct {
-	AdditionalApps   []int          `yaml:"AdditionalApps,omitempty"`
-	AdditionalDepots []int          `yaml:"AdditionalDepots,omitempty"`
-	DecryptionKeys   map[int]string `yaml:"DecryptionKeys,omitempty"`
-	A                map[string]any `yaml:",inline"`
+	Depotcache       string
+	ApiKey           string
+	SLSconfigPath    string
+	Config           *yaml.Node
+	AdditionalApps   *yaml.Node
+	AdditionalDepots *yaml.Node
+	DecryptionKeys   *yaml.Node
 }
 
 func main() {
@@ -107,15 +102,23 @@ func main() {
 func (a *App) Run(appid int) error {
 	start := time.Now()
 	logger.Info("Loading existing config", "step", "1/3")
-	cf, err := os.ReadFile(a.SLSconfigPath)
+	root, err := LoadConfig(a.SLSconfigPath)
 	if err != nil {
-		return fmt.Errorf("failed to read config: %w", err)
+		return err
 	}
-	if err := yaml.Unmarshal(cf, &a.Config); err != nil {
-		return fmt.Errorf("failed to parse config: %w", err)
+	a.Config = root
+
+	a.AdditionalApps, err = EnsureKey(root, "AdditionalApps", yaml.SequenceNode, "!!seq")
+	if err != nil {
+		return err
 	}
-	if a.Config.DecryptionKeys == nil {
-		a.Config.DecryptionKeys = make(map[int]string)
+	a.AdditionalDepots, err = EnsureKey(root, "AdditionalDepots", yaml.SequenceNode, "!!seq")
+	if err != nil {
+		return err
+	}
+	a.DecryptionKeys, err = EnsureKey(root, "DecryptionKeys", yaml.MappingNode, "!!map")
+	if err != nil {
+		return err
 	}
 
 	logger.Info("Fetching HubCap manifest", "appid", appid, "step", "2/3")
@@ -129,9 +132,7 @@ func (a *App) Run(appid int) error {
 		return fmt.Errorf("failed to parse lua: %w", err)
 	}
 
-	if !slices.Contains(a.Config.AdditionalApps, appid) {
-		a.Config.AdditionalApps = append(a.Config.AdditionalApps, appid)
-	}
+	AppendIntToSeq(a.AdditionalApps, appid)
 
 	logger.Info("Fetched app info", "duration", time.Since(start).Round(time.Millisecond))
 	if err := a.SaveConfig(); err != nil {

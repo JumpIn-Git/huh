@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"slices"
 
 	lua "github.com/yuin/gopher-lua"
 )
@@ -17,17 +16,15 @@ func (a *App) parseLua(luab []byte, appid int) error {
 		key := l.OptString(3, "")
 
 		if key == "" {
-			if !slices.Contains(a.Config.AdditionalApps, id) {
-				a.Config.AdditionalApps = append(a.Config.AdditionalApps, id)
+			if AppendIntToSeq(a.AdditionalApps, id) {
 				logger.Debug("+ Lua: Added appid", "appid", id)
 			}
 		} else {
-			a.Config.DecryptionKeys[id] = key
+			SetMapKey(a.DecryptionKeys, id, key)
 			if id != appid {
-				if !slices.Contains(a.Config.AdditionalDepots, id) {
-					a.Config.AdditionalDepots = append(a.Config.AdditionalDepots, id)
+				if AppendIntToSeq(a.AdditionalDepots, id) {
+					logger.Debug("+ Lua: Added depot with key", "depotid", id)
 				}
-				logger.Debug("+ Lua: Added depot with key", "depotid", id)
 			} else {
 				logger.Debug("+ Lua: Added appid key", "appid", id)
 			}

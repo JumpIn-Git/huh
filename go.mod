@@ -1,4 +1,4 @@
-module steam
+module huhcap
 
 go 1.26.7
 

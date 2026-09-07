@@ -62,10 +62,9 @@ func killSteam() {
 		logger.Warn("Failed to list processes", "error", err)
 		return
 	}
-	pid := int32(os.Getpid())
 
 	for _, p := range processes {
-		if name, _ := p.Name(); name != "steam" || p.Pid == pid {
+		if name, _ := p.Name(); name != "steam" {
 			continue
 		}
 		var restart bool
