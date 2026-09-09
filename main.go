@@ -18,9 +18,10 @@ type App struct {
 	SLSconfigPath    string
 	Name             string
 	Config           *yaml.Node
-	AdditionalApps   *yaml.Node
-	AdditionalDepots *yaml.Node
-	DecryptionKeys   *yaml.Node
+	AdditionalApps   *yaml.Node // []appid
+	AdditionalDepots *yaml.Node // []depotid
+	DecryptionKeys   *yaml.Node // map[depotid]key
+	ManifestIds      *yaml.Node // map[depotid]gid
 }
 
 func main() {
@@ -86,6 +87,10 @@ func (a *App) Run(appid int) error {
 	if err != nil {
 		return err
 	}
+	a.ManifestIds, err = EnsureKey(root, "ManifestIds", yaml.MappingNode, "!!map")
+	if err != nil {
+		return err
+	}
 
 	logger.Info("Fetching HubCap manifest", "appid", appid, "step", "2/4")
 	luab, err := a.fetchHubcap(appid)
@@ -98,7 +103,7 @@ func (a *App) Run(appid int) error {
 		return fmt.Errorf("failed to fetch game name: %w", err)
 	}
 
-	logger.Info("Parsing Lua configuration", "step", "4/4")
+	logger.Info("Executing Lua configuration", "step", "4/4")
 	if err := a.parseLua(luab, appid); err != nil {
 		return fmt.Errorf("failed to parse lua: %w", err)
 	}

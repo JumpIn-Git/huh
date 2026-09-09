@@ -11,8 +11,11 @@ func (a *App) parseLua(luab []byte, appid int) error {
 	defer L.Close()
 
 	L.SetGlobal("addappid", L.NewFunction(func(l *lua.LState) int {
+		// Usually 1 or 3 arguments are passed, 1 -> appid
+		// 3 -> appid/depotid, ?, key
+		// We don't need the 2nd argument,
+		// and sometimes a appid can have a key which is needed to download.
 		id := l.CheckInt(1)
-		_ = l.OptInt(2, 0)
 		key := l.OptString(3, "")
 
 		if key == "" {
@@ -29,6 +32,15 @@ func (a *App) parseLua(luab []byte, appid int) error {
 				logger.Debug("+ Lua: Added appid key", "appid", id)
 			}
 		}
+		return 0
+	}))
+	L.SetGlobal("setManifestid", L.NewFunction(func(l *lua.LState) int {
+		// Usually a 3d argument is passed which we dont need,
+		// which I presume is the manifest creation timestamp.
+		id := l.CheckInt(1) // Depot
+		gid := l.CheckString(2)
+		SetMapKey(a.ManifestIds, id, gid, a.Name)
+		logger.Debugf("+ Luee Pinned depot %d to gid %s", id, gid)
 		return 0
 	}))
 
