@@ -61,7 +61,7 @@ func (a *App) parseLua(luab []byte, appid int) error {
 	L.SetMetatable(L.GetGlobal("_G"), mt)
 
 	if err := L.DoString(string(luab)); err != nil {
-		return fmt.Errorf("lua execution failed: %w", err)
+		return fmt.Errorf("Lua execution failed: %w", err)
 	}
 	return nil
 }

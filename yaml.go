@@ -7,21 +7,32 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func (a *App) SaveConfig() error {
+	b, err := yaml.Marshal(a.Config)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(a.SLSconfigPath, b, 0666); err != nil {
+		return err
+	}
+	return nil
+}
+
 func LoadConfig(filePath string) (*yaml.Node, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read config file: %w", err)
+		return nil, fmt.Errorf("Failed to read config file: %w", err)
 	}
 	var doc yaml.Node
 	if err := yaml.Unmarshal(data, &doc); err != nil {
-		return nil, fmt.Errorf("invalid YAML format: %w", err)
+		return nil, fmt.Errorf("Invalid YAML format: %w", err)
 	}
 	if len(doc.Content) == 0 {
-		return nil, fmt.Errorf("config file is empty")
+		return nil, fmt.Errorf("Config file is empty")
 	}
 	root := doc.Content[0]
 	if root.Kind != yaml.MappingNode {
-		return nil, fmt.Errorf("invalid config format in %q: expected top-level map, got %v", filePath, root.Kind)
+		return nil, fmt.Errorf("Invalid config format in %q: expected top-level map, got %v", filePath, root.Kind)
 	}
 	return root, nil
 }
@@ -36,9 +47,9 @@ func EnsureKey(mapping *yaml.Node, key string, expectedKind yaml.Kind, expectedT
 					mapping.Content[i+1] = newVal
 					return newVal, nil
 				}
-				return nil, fmt.Errorf("key %q exists but is of type %v (expected %v)", key, valNode.Kind, expectedKind)
+				return nil, fmt.Errorf("Key %q exists but is of type %v (expected %v)", key, valNode.Kind, expectedKind)
 			} else if valNode.Tag != expectedTag {
-				return nil, fmt.Errorf("key %q exists but tag is %q, (expected %q)", key, valNode.Tag, expectedTag)
+				return nil, fmt.Errorf("Key %q exists but tag is %q, (expected %q)", key, valNode.Tag, expectedTag)
 			}
 			return valNode, nil
 		}
@@ -60,10 +71,7 @@ func EnsureKey(mapping *yaml.Node, key string, expectedKind yaml.Kind, expectedT
 // isEmptyScalar reports whether a scalar node represents an empty/null value
 // (e.g. a YAML key with no contents, which SLSsteam emits as `Key:`).
 func isEmptyScalar(n *yaml.Node) bool {
-	if n.Kind != yaml.ScalarNode {
-		return false
-	}
-	return n.Tag == "!!null" || n.Value == "" || n.Value == "null" || n.Value == "~"
+	return n.Kind == yaml.ScalarNode && (n.Tag == "!!null" || n.Value == "" || n.Value == "null" || n.Value == "~")
 }
 
 // SeqContainsInt reports whether a !!seq node contains the given integer value.

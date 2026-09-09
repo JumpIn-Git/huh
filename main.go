@@ -3,7 +3,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -54,71 +53,64 @@ func main() {
 		args.SLSconfigPath = filepath.Join(configDir, "SLSsteam", "config.yaml")
 	}
 
-	app := &App{
+	(&App{
 		Depotcache:    depotcache,
 		ApiKey:        args.ApiKey,
 		SLSconfigPath: args.SLSconfigPath,
-	}
-	if err := app.Run(args.Appid); err != nil {
-		logger.Error("Failed to run", "error", err.Error())
-		os.Exit(1)
-	}
-	os.Exit(0)
+	}).Run(args.Appid)
 }
 
-func (a *App) Run(appid int) error {
+func (a *App) Run(appid int) {
 	start := time.Now()
 	logger.Info("Loading existing config", "step", "1/4")
 	root, err := LoadConfig(a.SLSconfigPath)
 	if err != nil {
-		return err
+		logger.Fatal(err)
 	}
 	a.Config = root
 
 	a.AdditionalApps, err = EnsureKey(root, "AdditionalApps", yaml.SequenceNode, "!!seq")
 	if err != nil {
-		return err
+		logger.Fatal(err)
 	}
 	a.AdditionalDepots, err = EnsureKey(root, "AdditionalDepots", yaml.SequenceNode, "!!seq")
 	if err != nil {
-		return err
+		logger.Fatal(err)
 	}
 	a.DecryptionKeys, err = EnsureKey(root, "DecryptionKeys", yaml.MappingNode, "!!map")
 	if err != nil {
-		return err
+		logger.Fatal(err)
 	}
 	a.ManifestIds, err = EnsureKey(root, "ManifestIds", yaml.MappingNode, "!!map")
 	if err != nil {
-		return err
+		logger.Fatal(err)
 	}
 
 	logger.Info("Fetching HubCap manifest", "appid", appid, "step", "2/4")
 	luab, err := a.fetchHubcap(appid)
 	if err != nil {
-		return fmt.Errorf("failed to fetch hubcap: %w", err)
+		logger.Fatal(err)
 	}
 
 	logger.Info("Fetching game name", "appid", appid, "step", "3/4")
 	if a.Name, err = getGameName(appid); err != nil {
-		return fmt.Errorf("failed to fetch game name: %w", err)
+		logger.Fatal(err)
 	}
 
 	logger.Info("Executing Lua configuration", "step", "4/4")
 	if err := a.parseLua(luab, appid); err != nil {
-		return fmt.Errorf("failed to parse lua: %w", err)
+		logger.Fatal(err)
 	}
 
 	AppendIntToSeq(a.AdditionalApps, appid, a.Name)
 
 	logger.Info("Fetched app info", "duration", time.Since(start).Round(time.Millisecond))
 	if err := a.SaveConfig(); err != nil {
-		logger.Error("Failed to save config", "error", err)
-		os.Exit(1)
+		logger.Fatal("Failed to save config", "error", err)
 	}
 	logger.Info("✓ Config updated successfully")
 
 	killSteam()
 
 	logger.Info("✓ Done!")
-	return nil
 }

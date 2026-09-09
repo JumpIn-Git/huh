@@ -17,29 +17,16 @@ import (
 	"charm.land/lipgloss/v2"
 	"charm.land/log/v2"
 	"github.com/shirou/gopsutil/v3/process"
-
-	"gopkg.in/yaml.v3"
 )
 
 var logger *log.Logger
 var Client = http.Client{Timeout: 10 * time.Second}
 
-func (a *App) SaveConfig() error {
-	b, err := yaml.Marshal(a.Config)
-	if err != nil {
-		return err
-	}
-	if err := os.WriteFile(a.SLSconfigPath, b, 0666); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (a *App) copyManifest(file *zip.File) error {
 	n := strings.TrimSuffix(filepath.Base(file.Name), ".manifest")
 	zf, err := file.Open()
 	if err != nil {
-		return fmt.Errorf("failed to open manifest: %w", err)
+		return fmt.Errorf("Failed to open manifest: %w", err)
 	}
 	defer zf.Close()
 	dst := filepath.Join(a.Depotcache, file.Name)
@@ -48,12 +35,12 @@ func (a *App) copyManifest(file *zip.File) error {
 		logger.Debug("↷ Skipping existing manifest", "manifest", n)
 		return nil
 	} else if err != nil {
-		return fmt.Errorf("failed to open manifest: %w", err)
+		return fmt.Errorf("Failed to open manifest: %w", err)
 	}
 	defer df.Close()
 	_, err = io.Copy(df, zf)
 	if err != nil {
-		return fmt.Errorf("failed to copy manifest: %w", err)
+		return fmt.Errorf("Failed to copy manifest: %w", err)
 	}
 	logger.Debug("+ Copied manifest", "manifest", n)
 	return nil

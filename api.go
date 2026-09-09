@@ -19,22 +19,22 @@ func (a *App) fetchHubcap(appid int) ([]byte, error) {
 	start := time.Now()
 	resp, err := Client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
+		return nil, fmt.Errorf("Request failed: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return nil, fmt.Errorf("Unexpected status code: %d", resp.StatusCode)
 	}
 
 	logger.Debug("Downloaded manifest zip", "duration", time.Since(start).Round(time.Millisecond))
 	buf, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, fmt.Errorf("Failed to read response body: %w", err)
 	}
 	bytesReader := bytes.NewReader(buf)
 	zipReader, err := zip.NewReader(bytesReader, int64(len(buf)))
 	if err != nil {
-		return nil, fmt.Errorf("failed to open zip: %w", err)
+		return nil, fmt.Errorf("Failed to open zip: %w", err)
 	}
 
 	var luab []byte
@@ -47,14 +47,14 @@ func (a *App) fetchHubcap(appid int) ([]byte, error) {
 		} else if ext == ".lua" && luab == nil {
 			b, err := readZipFile(file)
 			if err != nil {
-				return nil, fmt.Errorf("failed reading lua file %s: %w", file.Name, err)
+				return nil, fmt.Errorf("Failed reading lua file %s: %w", file.Name, err)
 			}
 			luab = b
 			logger.Debug("Found Lua config file", "file", file.Name)
 		}
 	}
 	if luab == nil {
-		return nil, fmt.Errorf("no lua file found")
+		return nil, fmt.Errorf("No lua file found")
 	}
 	return luab, nil
 }
@@ -71,11 +71,11 @@ func readZipFile(file *zip.File) ([]byte, error) {
 func getGameName(appid int) (string, error) {
 	resp, err := Client.Get(fmt.Sprintf("https://store.steampowered.com/api/appdetails?appids=%d", appid))
 	if err != nil {
-		return "", fmt.Errorf("request failed: %w", err)
+		return "", fmt.Errorf("Request failed: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return "", fmt.Errorf("Unexpected status code: %d", resp.StatusCode)
 	}
 	var s map[string]struct {
 		Data struct {
@@ -83,11 +83,11 @@ func getGameName(appid int) (string, error) {
 		} `json:"data"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&s); err != nil {
-		return "", fmt.Errorf("malformed response: %w", err)
+		return "", fmt.Errorf("Malformed response: %w", err)
 	}
 	n := s[fmt.Sprintf("%d", appid)].Data.Name
 	if n == "" {
-		return "", errors.New("name is empty")
+		return "", errors.New("Name is empty, malformed response")
 	}
 	return n, nil
 }
