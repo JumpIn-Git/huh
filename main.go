@@ -4,18 +4,13 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	"time"
 
-	"charm.land/lipgloss/v2"
-	"charm.land/log/v2"
 	"github.com/alexflint/go-arg"
 	"gopkg.in/yaml.v3"
 )
-
-var Client = http.Client{Timeout: 10 * time.Second}
 
 type App struct {
 	Depotcache       string
@@ -30,71 +25,41 @@ type App struct {
 
 func main() {
 	var args struct {
-		Appid   int  `arg:"positional,required"`
-		Verbose bool `arg:"-v,--verbose" help:"verbosity level"`
+		Appid         int    `arg:"positional,required"`
+		Verbose       bool   `arg:"-v,--verbose" help:"Verbose output"`
+		ApiKey        string `arg:"-k,--key,env:HUBCAP_KEY" help:"HubCap API key"`
+		SLSconfigPath string `arg:"-c,--config" help:"Custom SLSsteam config (for testing)" placeholder:"SLSC_PATH"`
 	}
-	arg.MustParse(&args)
-	// lmittmann/tint-like styling
-	s := log.DefaultStyles()
-	s.Levels[log.DebugLevel] = s.Levels[log.DebugLevel].UnsetForeground().Bold(false)
-	s.Levels[log.InfoLevel] = s.Levels[log.InfoLevel].Foreground(lipgloss.Color("2"))
-	s.Levels[log.WarnLevel] = s.Levels[log.WarnLevel].Foreground(lipgloss.Color("3"))
-	s.Levels[log.ErrorLevel] = s.Levels[log.ErrorLevel].Foreground(lipgloss.Color("1"))
-	s.Timestamp = lipgloss.NewStyle().Faint(true)
-	for level, style := range s.Levels {
-		s.Levels[level] = style.Transform(func(str string) string {
-			if len(str) > 2 {
-				return str[:3]
-			}
-			return str
-		}).Width(0)
+	p := arg.MustParse(&args)
+	if args.ApiKey == "" {
+		p.Fail("error: APIKEY is required (or environment variable HUBCAP_KEY)")
 	}
-	logger = log.NewWithOptions(os.Stdout, log.Options{
-		TimeFormat:      time.Kitchen,
-		ReportTimestamp: true,
-	})
-	logger.SetStyles(s)
-	if args.Verbose {
-		logger.SetLevel(log.DebugLevel)
-	}
-
-	key := os.Getenv("HUBCAB_KEY")
-	if key == "" {
-		logger.Error("HUBCAB_KEY environment variable not set")
-		logger.Info("Please set HUBCAB_KEY to your HubCap API key")
-		os.Exit(1)
-	}
+	NewLogger(args.Verbose)
 
 	home, err := os.UserHomeDir()
 	if err != nil {
-		logger.Error("Failed to get home directory", "error", err)
-		os.Exit(1)
+		logger.Fatal("Failed to get home directory", "error", err)
 	}
-	depotcache := filepath.Join(home, ".steam", "steam")
+	depotcache := filepath.Join(home, ".steam", "steam", "depotcache")
 	if f, err := os.Stat(depotcache); err != nil || !f.IsDir() {
-		logger.Error("Steam depotcache not found", "path", depotcache)
-		logger.Info("Ensure Steam is installed and has been run once")
-		os.Exit(1)
+		logger.Fatal("Ensure Steam is installed and has been run once")
 	}
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		logger.Error("Failed to locate user .config directory")
-		os.Exit(1)
-	}
-	slsc := filepath.Join(configDir, "SLSsteam", "config.yaml")
-	if f, err := os.Stat(slsc); err != nil || f.IsDir() {
-		logger.Error("Config file not found", "path", slsc)
-		logger.Info("Install SLSsteam and launch once")
-		os.Exit(1)
+	if args.SLSconfigPath == "" {
+		configDir, err := os.UserConfigDir()
+		if err != nil {
+			logger.Error("Failed to locate user .config directory")
+			os.Exit(1)
+		}
+		args.SLSconfigPath = filepath.Join(configDir, "SLSsteam", "config.yaml")
 	}
 
 	app := &App{
 		Depotcache:    depotcache,
-		ApiKey:        key,
-		SLSconfigPath: slsc,
+		ApiKey:        args.ApiKey,
+		SLSconfigPath: args.SLSconfigPath,
 	}
 	if err := app.Run(args.Appid); err != nil {
-		logger.Error("Failed to run", "error", err)
+		logger.Error("Failed to run", "error", err.Error())
 		os.Exit(1)
 	}
 	os.Exit(0)

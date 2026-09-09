@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
 	"charm.land/log/v2"
 	"github.com/shirou/gopsutil/v3/process"
 
@@ -20,6 +22,7 @@ import (
 )
 
 var logger *log.Logger
+var Client = http.Client{Timeout: 10 * time.Second}
 
 func (a *App) SaveConfig() error {
 	b, err := yaml.Marshal(a.Config)
@@ -105,5 +108,32 @@ func killSteam() {
 		}
 		logger.Info("✓ Steam restarted")
 		return
+	}
+}
+
+func NewLogger(v bool) {
+	// lmittmann/tint-like styling
+	s := log.DefaultStyles()
+	s.Levels[log.DebugLevel] = s.Levels[log.DebugLevel].UnsetForeground().Bold(false)
+	s.Levels[log.InfoLevel] = s.Levels[log.InfoLevel].Foreground(lipgloss.Color("2"))
+	s.Levels[log.WarnLevel] = s.Levels[log.WarnLevel].Foreground(lipgloss.Color("3"))
+	s.Levels[log.ErrorLevel] = s.Levels[log.ErrorLevel].Foreground(lipgloss.Color("1"))
+	s.Timestamp = s.Timestamp.Faint(false)
+	// s.Timestamp = lipgloss.NewStyle().Faint(true)
+	for level, style := range s.Levels {
+		s.Levels[level] = style.Transform(func(str string) string {
+			if len(str) > 2 {
+				return str[:3]
+			}
+			return str
+		}).Width(0)
+	}
+	logger = log.NewWithOptions(os.Stdout, log.Options{
+		TimeFormat:      time.Kitchen,
+		ReportTimestamp: true,
+	})
+	logger.SetStyles(s)
+	if v {
+		logger.SetLevel(log.DebugLevel)
 	}
 }
