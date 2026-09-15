@@ -21,13 +21,15 @@ type App struct {
 	AdditionalDepots *yaml.Node // []depotid
 	DecryptionKeys   *yaml.Node // map[depotid]key
 	ManifestIds      *yaml.Node // map[depotid]gid
+	AppTokens        *yaml.Node // map[appid]token
 }
 
 func main() {
 	var args struct {
-		Appid         int    `arg:"positional,required"`
-		Verbose       bool   `arg:"-v,--verbose" help:"Verbose output"`
-		ApiKey        string `arg:"-k,--key,env:HUBCAP_KEY" help:"HubCap API key"`
+		Appid   int    `arg:"positional,required"`
+		Verbose bool   `arg:"-v,--verbose" help:"Verbose output"`
+		ApiKey  string `arg:"-k,--key,env:HUBCAP_KEY" help:"HubCap API key"`
+		// Hack, since required still triggers even if the env key is set, we fail if its empty ourself.
 		SLSconfigPath string `arg:"-c,--config" help:"Custom SLSsteam config (for testing)" placeholder:"SLSC_PATH"`
 	}
 	p := arg.MustParse(&args)
@@ -82,6 +84,10 @@ func (a *App) Run(appid int) {
 		logger.Fatal(err)
 	}
 	a.ManifestIds, err = EnsureKey(root, "ManifestIds", yaml.MappingNode, "!!map")
+	if err != nil {
+		logger.Fatal(err)
+	}
+	a.AppTokens, err = EnsureKey(root, "AppTokens", yaml.MappingNode, "!!map")
 	if err != nil {
 		logger.Fatal(err)
 	}

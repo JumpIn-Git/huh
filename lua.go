@@ -11,10 +11,11 @@ func (a *App) parseLua(luab []byte, appid int) error {
 	defer L.Close()
 
 	L.SetGlobal("addappid", L.NewFunction(func(l *lua.LState) int {
-		// Usually 1 or 3 arguments are passed, 1 -> appid
-		// 3 -> appid/depotid, ?, key
+		// Usually 1 or 3 arguments are passed, 1 -> appid OR
+		// 3 -> appid/depotid, ?, key.
 		// We don't need the 2nd argument,
-		// and sometimes a appid can have a key which is needed to download.
+		// and sometimes a appid can have a key which is needed to download,
+		// but shouldn't be added to AdditionalDepots.
 		id := l.CheckInt(1)
 		key := l.OptString(3, "")
 
@@ -34,26 +35,37 @@ func (a *App) parseLua(luab []byte, appid int) error {
 		}
 		return 0
 	}))
+	L.SetGlobal("addtoken", L.NewFunction(func(l *lua.LState) int {
+		// addtoken(appid, "<token>")
+		app := l.CheckInt(1)
+		token := l.CheckString(2)
+		SetMapKey(a.AppTokens, app, token, a.Name)
+		logger.Debugf("+ Lua: Added apptoken for %d", app)
+		return 0
+	}))
 	L.SetGlobal("setManifestid", L.NewFunction(func(l *lua.LState) int {
 		// Usually a 3d argument is passed which we dont need,
-		// which I presume is the manifest creation timestamp.
-		id := l.CheckInt(1) // Depot
+		// which is a old request code or maybe a manifest timestamp.
+		depot := l.CheckInt(1)
 		gid := l.CheckString(2)
-		SetMapKey(a.ManifestIds, id, gid, a.Name)
-		logger.Debugf("+ Luee Pinned depot %d to gid %s", id, gid)
+		SetMapKey(a.ManifestIds, depot, gid, a.Name)
+		logger.Debugf("+ Lua: Pinned depot %d to gid %s", depot, gid)
 		return 0
 	}))
 
 	mt := L.NewTable()
-	L.SetField(mt, "__index", L.NewFunction(func(L *lua.LState) int {
-		varName := L.CheckString(2)
-		L.Push(L.NewFunction(func(L *lua.LState) int {
-			top := L.GetTop()
+	L.SetField(mt, "__index", L.NewFunction(func(l *lua.LState) int {
+		// If a lua indexes a unknown function, we blindly return
+		// a ghost funtion which just logs its name and arguments,
+		// to prevent unnecessary crashes.
+		varName := l.CheckString(2)
+		l.Push(l.NewFunction(func(l *lua.LState) int {
+			top := l.GetTop()
 			args := make([]string, 0, top)
 			for i := 1; i <= top; i++ {
-				args = append(args, L.Get(i).String())
+				args = append(args, l.Get(i).String())
 			}
-			logger.Debug("Lua: Ignored unknown call", "function", varName, "args", args)
+			logger.Debug("- Lua: Ignored unknown call", "function", varName, "args", args)
 			return 0
 		}))
 		return 1
